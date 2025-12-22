@@ -1,5 +1,7 @@
 from PySide6.QtCore import QMargins, Qt, QRect, QSize, QPoint
 from PySide6.QtWidgets import QLayout, QSizePolicy
+
+
 """
 Layout made from Example at: https://doc.qt.io/qtforpython-6/examples/example_widgets_layouts_flowlayout.html
 """

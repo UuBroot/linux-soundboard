@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QWidget, QLabel
 
 from views.flow_layout import FlowLayout
 from views.grid_item import GridItem
@@ -25,10 +25,14 @@ class GridWidget(QWidget):
         # Clear existing widgets
         self.clear_grid()
 
-        # Add widgets to flow layout (will wrap automatically)
+        # Add widgets to the flow layout (will wrap automatically)
         for text in self.items:
             item_widget = GridItem(text, self.item_size)
             self.layout.addWidget(item_widget)
+
+        # If no sounds are in the list
+        if len(self.items) == 0:
+            self.layout.addWidget(QLabel("No sounds found!"))
 
     def clear_grid(self):
         """Remove all widgets from the grid"""
