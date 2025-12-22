@@ -1,374 +1,114 @@
 #!/usr/bin/env python3
-"""
-PipeWire Microphone Stream Hijacker
-Intercepts your existing mic and injects soundboard audio into it.
-
-No Discord configuration needed - it hijacks whatever mic Discord is using!
-"""
-
 import subprocess
+import sys
 import sounddevice as sd
 import soundfile as sf
 import numpy as np
 from pathlib import Path
-import sys
-import threading
-import queue
+from pynput import keyboard
 
 
-class MicrophoneHijacker:
-    """
-    Hijacks your microphone stream and adds soundboard audio on top.
-    Discord uses your mic normally, but sounds get injected into the stream.
-    """
-
+class SoundboardHijacker:
     def __init__(self):
-        self.original_default_source = None
-        self.virtual_mic_name = "hijacked_microphone"
-        self.soundboard_sink = "soundboard_injection"
-        self.modules_loaded = []
+        self.original_mic = None
+        self.def_sink = None
         self.sounds_dir = Path("sounds")
         self.sounds_dir.mkdir(exist_ok=True)
+        self.sound_files = sorted([f.name for f in self.sounds_dir.glob('*.*') if f.suffix in ['.mp3', '.wav', '.ogg']])
+        self.target_idx = None
 
-        # For real-time audio mixing
-        self.audio_queue = queue.Queue()
-        self.is_running = False
-
-    def get_current_mic(self):
-        """Get the currently active microphone"""
-        result = subprocess.run(
-            ['pactl', 'get-default-source'],
-            capture_output=True, text=True
-        )
-        return result.stdout.strip()
-
-    def setup_hijack(self):
-        """
-        Create a pass-through mic that sits between real mic and Discord.
-
-        Flow: Real Mic -> Virtual Mic (with soundboard injection) -> Discord
-        """
-
-        print("\n[1/3] Identifying your current microphone...")
-        self.original_default_source = self.get_current_mic()
-        print(f"  Current mic: {self.original_default_source}")
-
-        print("\n[2/3] Creating soundboard injection point...")
-        # Create null sink for soundboard
-        cmd = [
-            'pactl', 'load-module', 'module-null-sink',
-            f'sink_name={self.soundboard_sink}',
-            'sink_properties=device.description="Soundboard_Injection"'
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode == 0:
-            self.modules_loaded.append(result.stdout.strip())
-            print(f"  ✓ Created injection point")
-
-        print("\n[3/3] Hijacking microphone stream...")
-        # Create a null sink that will act as our mixer
-        cmd = [
-            'pactl', 'load-module', 'module-null-sink',
-            f'sink_name=mic_mixer',
-            'sink_properties=device.description="Microphone_Mixer"'
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode == 0:
-            self.modules_loaded.append(result.stdout.strip())
-
-        # Route original mic into mixer
-        cmd = [
-            'pactl', 'load-module', 'module-loopback',
-            f'source={self.original_default_source}',
-            'sink=mic_mixer',
-            'latency_msec=1',
-            'source_dont_move=true',
-            'sink_dont_move=true'
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode == 0:
-            self.modules_loaded.append(result.stdout.strip())
-
-        # Route soundboard into mixer
-        cmd = [
-            'pactl', 'load-module', 'module-loopback',
-            f'source={self.soundboard_sink}.monitor',
-            'sink=mic_mixer',
-            'latency_msec=1',
-            'source_dont_move=true',
-            'sink_dont_move=true'
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode == 0:
-            self.modules_loaded.append(result.stdout.strip())
-
-        # Create the hijacked microphone from mixer output
-        cmd = [
-            'pactl', 'load-module', 'module-remap-source',
-            f'source_name={self.virtual_mic_name}',
-            'master=mic_mixer.monitor',
-            'source_properties=device.description="Microphone"'
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode == 0:
-            self.modules_loaded.append(result.stdout.strip())
-            print(f"  ✓ Created hijacked microphone")
-
-        # Set as default (this is what Discord will pick up)
-        subprocess.run(['pactl', 'set-default-source', self.virtual_mic_name])
-
-        print("\n" + "=" * 70)
-        print("✓ MICROPHONE HIJACKED!")
-        print("=" * 70)
-        print("\nWhat happened:")
-        print(f"  • Your real mic: {self.original_default_source}")
-        print(f"  • Hijacked mic: {self.virtual_mic_name} (now system default)")
-        print(f"  • Soundboard injection: {self.soundboard_sink}")
-        print("\nHow it works:")
-        print("  Real Mic ──┐")
-        print("             ├──> Hijacked Mic ──> Discord")
-        print("  Soundboard ┘")
-        print("\n  Discord thinks it's using your normal mic!")
-        print("  But we're secretly mixing in soundboard audio.")
-        print("=" * 70 + "\n")
-
-    def get_soundboard_device_id(self):
-        """Find device ID for soundboard output"""
-        devices = sd.query_devices()
-        for idx, device in enumerate(devices):
-            if self.soundboard_sink in device['name']:
-                return idx
-        return None
-
-    def play_sound(self, filepath, volume=1.0):
-        """Inject sound into the mic stream"""
-        device_id = self.get_soundboard_device_id()
-
-        if device_id is None:
-            print("Error: Soundboard device not found")
-            return False
+    def setup(self):
+        print("🧹 Cleaning audio modules...")
+        subprocess.run(['pactl', 'unload-module', 'module-loopback'], capture_output=True)
+        subprocess.run(['pactl', 'unload-module', 'module-null-sink'], capture_output=True)
+        subprocess.run(['pactl', 'unload-module', 'module-remap-source'], capture_output=True)
 
         try:
-            print(f"🔊 Injecting: {filepath.name}")
-            data, samplerate = sf.read(filepath)
+            self.original_mic = subprocess.check_output(['pactl', 'get-default-source'], text=True).strip()
+            self.def_sink = subprocess.check_output(['pactl', 'get-default-sink'], text=True).strip()
+        except subprocess.CalledProcessError:
+            print("❌ Error: Audio system not responding.")
+            sys.exit(1)
 
-            # Apply volume
-            if volume != 1.0:
-                data = data * volume
+        # 1. Create the Soundboard Sink (This is JUST for the files)
+        subprocess.run(['pactl', 'load-module', 'module-null-sink', 'sink_name=sb_only',
+                        'sink_properties=device.description="SB_Files_Only"'])
 
-            # Play through soundboard sink (which mixes into mic)
-            sd.play(data, samplerate, device=device_id)
-            sd.wait()
-            print("  ✓ Injection complete")
-            return True
+        # 2. Create the Final Mixer (Where Mic and SB meet)
+        subprocess.run(['pactl', 'load-module', 'module-null-sink', 'sink_name=final_mix',
+                        'sink_properties=device.description="Final_Mixer"'])
 
-        except Exception as e:
-            print(f"Error: {e}")
-            return False
+        # 3. Create the Virtual Mic for Discord
+        subprocess.run(['pactl', 'load-module', 'module-remap-source',
+                        'master=final_mix.monitor',
+                        'source_name=hijacked_mic',
+                        'source_properties=device.description="Hijacked_Mic"'])
 
-    def list_sounds(self):
-        """List available sounds"""
-        sounds = list(self.sounds_dir.glob('*.*'))
+        # --- ROUTING (THE ECHO FIX) ---
 
-        if not sounds:
-            print(f"\n📁 No sounds in {self.sounds_dir}/")
-            print("   Add .mp3, .wav, or .ogg files")
-            return []
+        # Route 1: Physical Mic -> Final Mixer (Discord hears you, but you don't hear yourself)
+        subprocess.run(['pactl', 'load-module', 'module-loopback', f'source={self.original_mic}',
+                        'sink=final_mix', 'latency_msec=20'])
 
-        print("\n=== 🎵 Available Sounds ===")
-        for i, sound in enumerate(sounds, 1):
-            size = sound.stat().st_size / 1024
-            print(f"  {i}. {sound.name} ({size:.1f} KB)")
-        print("=" * 40)
+        # Route 2: Soundboard Sink -> Final Mixer (Discord hears the soundboard)
+        subprocess.run(['pactl', 'load-module', 'module-loopback', 'source=sb_only.monitor',
+                        'sink=final_mix', 'latency_msec=20'])
 
-        return sounds
+        # Route 3: Soundboard Sink -> Your Speakers (You hear the soundboard)
+        subprocess.run(['pactl', 'load-module', 'module-loopback', 'source=sb_only.monitor',
+                        f'sink={self.def_sink}', 'latency_msec=20'])
 
-    def test_mic_levels(self):
-        """Show current mic input levels"""
-        print("\n=== Testing Microphone Levels ===")
-        print("Speak into your microphone...")
-        print("(Ctrl+C to stop)\n")
+        subprocess.run(['pactl', 'set-default-source', 'hijacked_mic'])
 
-        try:
-            device_id = None
-            devices = sd.query_devices()
-            for idx, device in enumerate(devices):
-                if self.virtual_mic_name in device['name']:
-                    device_id = idx
-                    break
-
-            if device_id is None:
-                print("Could not find hijacked microphone")
-                return
-
-            def audio_callback(indata, frames, time, status):
-                volume_norm = np.linalg.norm(indata) * 10
-                bars = int(volume_norm)
-                print(f"\rLevel: {'█' * bars}{' ' * (50 - bars)}", end='')
-
-            with sd.InputStream(device=device_id, callback=audio_callback):
-                sd.sleep(10000)
-
-        except KeyboardInterrupt:
-            print("\n")
-
-    def restore(self):
-        """Restore original microphone configuration"""
-        print("\n" + "=" * 70)
-        print("Restoring original configuration...")
-        print("=" * 70)
-
-        # Restore original default source
-        if self.original_default_source:
-            print(f"\nRestoring: {self.original_default_source}")
-            subprocess.run(['pactl', 'set-default-source', self.original_default_source])
-
-        # Unload all modules
-        print("Removing virtual devices...")
-        for module_id in reversed(self.modules_loaded):
-            subprocess.run(['pactl', 'unload-module', module_id],
-                           capture_output=True, stderr=subprocess.DEVNULL)
-
-        print("✓ Original configuration restored!")
-        print("✓ Microphone un-hijacked")
-
-
-def check_requirements():
-    """Check system requirements"""
-    import shutil
-
-    if not shutil.which('pactl'):
-        print("Error: 'pactl' not found")
-        print("Install: sudo apt install pulseaudio-utils")
-        return False
-
-    try:
-        import sounddevice
-        import soundfile
-        import numpy
-    except ImportError:
-        print("Error: Missing Python packages")
-        print("Install: pip install sounddevice soundfile numpy")
-        return False
-
-    return True
-
-
-def print_discord_instructions():
-    """Show Discord usage instructions"""
-    print("\n" + "=" * 70)
-    print("DISCORD USAGE")
-    print("=" * 70)
-    print("\nOption A: Restart Discord (Recommended)")
-    print("  1. Close Discord completely")
-    print("  2. Run this soundboard script")
-    print("  3. Start Discord")
-    print("  4. Discord will automatically use the hijacked mic")
-    print("\nOption B: Keep Discord Running")
-    print("  1. In Discord: Settings → Voice & Video")
-    print("  2. Change input device to anything else, then back to 'Default'")
-    print("  3. Or select 'Microphone' explicitly")
-    print("\nThen:")
-    print("  • Join a voice channel")
-    print("  • Speak normally (your voice works)")
-    print("  • Play soundboard sounds (they mix in automatically)")
-    print("=" * 70 + "\n")
-
-
-def main():
-    """Main application"""
-
-    if not check_requirements():
-        sys.exit(1)
-
-    print("=" * 70)
-    print("PIPEWIRE MICROPHONE HIJACKER")
-    print("Invisible soundboard injection")
-    print("=" * 70)
-
-    hijacker = MicrophoneHijacker()
-
-    try:
-        # Setup hijacking
-        hijacker.setup_hijack()
-
-        # Show Discord instructions
-        print_discord_instructions()
-
-        # List sounds
-        sounds = hijacker.list_sounds()
-
-        if not sounds:
-            print("💡 Tip: Add sound files to 'sounds/' directory first")
-
-        # Interactive menu
-        print("\n" + "=" * 70)
-        print("SOUNDBOARD ACTIVE")
-        print("=" * 70)
-        print("\nCommands:")
-        print("  1-9  : Play sound by number")
-        print("  l    : List sounds")
-        print("  t    : Test microphone levels")
-        print("  v N  : Set volume (0-100), e.g., 'v 50'")
-        print("  h    : Show Discord instructions again")
-        print("  q    : Quit and restore")
-        print("=" * 70 + "\n")
-
-        volume = 1.0
-
-        while True:
-            try:
-                cmd = input("🎛️  > ").strip().lower()
-
-                if cmd == 'q':
-                    break
-
-                elif cmd == 'l':
-                    sounds = hijacker.list_sounds()
-
-                elif cmd == 't':
-                    hijacker.test_mic_levels()
-
-                elif cmd == 'h':
-                    print_discord_instructions()
-
-                elif cmd.startswith('v '):
-                    try:
-                        vol_str = cmd.split()[1]
-                        vol_percent = int(vol_str)
-                        if 0 <= vol_percent <= 100:
-                            volume = vol_percent / 100
-                            print(f"✓ Volume set to {vol_percent}%")
-                        else:
-                            print("Volume must be 0-100")
-                    except (IndexError, ValueError):
-                        print("Usage: v 50  (sets volume to 50%)")
-
-                elif cmd.isdigit():
-                    idx = int(cmd) - 1
-                    if 0 <= idx < len(sounds):
-                        hijacker.play_sound(sounds[idx], volume)
-                    else:
-                        print("Invalid sound number")
-
-                elif cmd:
-                    # Try to play by filename
-                    filepath = hijacker.sounds_dir / cmd
-                    if filepath.exists():
-                        hijacker.play_sound(filepath, volume)
-                    else:
-                        print(f"Sound not found: {cmd}")
-
-            except EOFError:
+        # Target the 'sb_only' sink for playback
+        sd._terminate()
+        sd._initialize()
+        for i, d in enumerate(sd.query_devices()):
+            if "SB_Files_Only" in d['name'] and d['max_output_channels'] > 0:
+                self.target_idx = i
                 break
 
-    except KeyboardInterrupt:
-        print("\n\n⚠️  Interrupted!")
+        print(f"✅ Setup complete. Echo-free routing active.")
 
-    finally:
-        hijacker.restore()
-        print("\nGoodbye! 👋")
+    def play_by_index(self, index):
+        if index < 0 or index >= len(self.sound_files) or self.target_idx is None:
+            return
+
+        filename = self.sound_files[index]
+        path = self.sounds_dir / filename
+
+        try:
+            data, fs = sf.read(path)
+            if len(data.shape) > 1:
+                data = np.mean(data, axis=1)
+            data = data / (np.max(np.abs(data)) + 1e-9) * 0.7
+
+            print(f"🔊 Playing: {filename}")
+            sd.play(data, fs, device=self.target_idx)
+        except Exception as e:
+            print(f"❌ Playback error: {e}")
+
+    def cleanup(self):
+        print("\n🧹 Restoring original audio state...")
+        subprocess.run(['pactl', 'unload-module', 'module-loopback'], capture_output=True)
+        subprocess.run(['pactl', 'unload-module', 'module-null-sink'], capture_output=True)
+        subprocess.run(['pactl', 'unload-module', 'module-remap-source'], capture_output=True)
+        if self.original_mic:
+            subprocess.run(['pactl', 'set-default-source', self.original_mic], capture_output=True)
 
 
 if __name__ == "__main__":
-    main()
+    sb = SoundboardHijacker()
+    sb.setup()
+
+    hotkey_map = {}
+    for i in range(min(len(sb.sound_files), 12)):
+        key = f'<f{i + 1}>'
+        hotkey_map[key] = (lambda idx=i: sb.play_by_index(idx))
+
+    with keyboard.GlobalHotKeys(hotkey_map) as h:
+        try:
+            print(f"\n🔥 READY. F1-F12 to play. CTRL+C to quit.")
+            h.join()
+        except KeyboardInterrupt:
+            sb.cleanup()
