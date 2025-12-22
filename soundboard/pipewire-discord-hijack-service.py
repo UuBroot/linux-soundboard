@@ -17,7 +17,7 @@ class SoundboardHijacker:
     def __init__(self):
         self.original_mic = None
         self.def_sink = None
-        self.sounds_dir = Path("sounds")
+        self.sounds_dir = Path("../sounds")
         self.sounds_dir.mkdir(exist_ok=True)
         self.target_idx = None
         # Cache for loaded audio to prevent disk lag during F-key presses
