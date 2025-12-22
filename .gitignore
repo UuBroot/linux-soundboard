@@ -14,7 +14,196 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+lib/Python: Write me an example code on how to use pipewire
+08.10
+
+Here's a practical example of how to use PipeWire in Python using the pulsectl library (which works with PipeWire's PulseAudio compatibility layer) and direct PipeWire control:
+PipeWire Python Examples
+Code
+
+I've created a comprehensive example showing three different approaches to using PipeWire in Python:
+
+1. Using pulsectl (Recommended)
+
+    Works through PipeWire's PulseAudio compatibility layer
+    Easy to install: pip install pulsectl
+    Best for most use cases (controlling volume, listing devices, monitoring events)
+
+2. Direct PipeWire bindings
+
+    Uses pw-python (system package, not pip-installable)
+    More low-level access to PipeWire features
+    Requires installing system packages like python3-pipewire
+
+3. Command-line wrapper
+
+    Uses subprocess to call pw-cli commands
+    Good fallback when Python bindings aren't available
+    Useful for automation scripts
+
+The most practical approach for most projects is usi
+Want to be notified when Claude responds?
+
+
+Claude is AI and can make mistakes. Please double-check responses.
+#!/usr/bin/env python3
+"""
+PipeWire Python Examples
+Demonstrates how to interact with PipeWire audio system
+"""
+
+# Example 1: Using pulsectl (PulseAudio compatibility layer)
+# Install: pip install pulsectl
+
+import pulsectl
+
+def list_audio_devices():
+    """List all audio sinks and sources using PulseAudio API"""
+    with pulsectl.Pulse('device-lister') as pulse:
+        print("=== Audio Output Devices (Sinks) ===")
+        for sink in pulse.sink_list():
+            print(f"ID: {sink.index}")
+            print(f"Name: {sink.name}")
+            print(f"Description: {sink.description}")
+            print(f"Volume: {sink.volume.value_flat * 100:.0f}%")
+            print(f"Muted: {sink.mute}")
+            print("-" * 40)
+
+        print("\n=== Audio Input Devices (Sources) ===")
+        for source in pulse.source_list():
+            print(f"ID: {source.index}")
+            print(f"Name: {source.name}")
+            print(f"Description: {source.description}")
+            print(f"Volume: {source.volume.value_flat * 100:.0f}%")
+            print(f"Muted: {source.mute}")
+            print("-" * 40)
+
+
+def control_volume(sink_index=0, volume_percent=50):
+    """Set volume for a specific sink"""
+    with pulsectl.Pulse('volume-controller') as pulse:
+        # Get the sink
+        sinks = pulse.sink_list()
+        if sink_index < len(sinks):
+            sink = sinks[sink_index]
+            # Set volume (0.0 to 1.0, can go above 1.0 for amplification)
+            pulse.volume_set_all_chans(sink, volume_percent / 100.0)
+            print(f"Volume set to {volume_percent}% for {sink.description}")
+        else:
+            print(f"Sink index {sink_index} not found")
+
+
+def mute_toggle(sink_index=0):
+    """Toggle mute status of a sink"""
+    with pulsectl.Pulse('mute-controller') as pulse:
+        sinks = pulse.sink_list()
+        if sink_index < len(sinks):
+            sink = sinks[sink_index]
+            new_mute_state = 0 if sink.mute else 1
+            pulse.mute(sink, new_mute_state)
+            status = "muted" if new_mute_state else "unmuted"
+            print(f"{sink.description} is now {status}")
+
+
+def monitor_events():
+    """Monitor PipeWire/PulseAudio events in real-time"""
+    print("Monitoring audio events (Ctrl+C to stop)...")
+    with pulsectl.Pulse('event-monitor') as pulse:
+        def callback(ev):
+            print(f"Event: {ev.facility} - {ev.t}")
+            if ev.t == 'change':
+                print(f"  Something changed in {ev.facility}")
+            elif ev.t == 'new':
+                print(f"  New {ev.facility} added")
+            elif ev.t == 'remove':
+                print(f"  {ev.facility} removed")
+
+        pulse.event_mask_set('all')
+        pulse.event_callback_set(callback)
+        try:
+            pulse.event_listen()
+        except KeyboardInterrupt:
+            print("\nStopped monitoring")
+
+
+# Example 2: Using pw-python (direct PipeWire API)
+# This requires libpipewire and python3-pipewire packages
+
+def pipewire_direct_example():
+    """
+    Example using direct PipeWire Python bindings (pw-python)
+    Note: Requires system packages (not pip installable)
+    """
+    try:
+        import gi
+        gi.require_version('Pw', '0.3')
+        from gi.repository import Pw
+
+        # Initialize PipeWire
+        Pw.init(None)
+
+        # Create a main loop
+        mainloop = Pw.MainLoop()
+        context = Pw.Context(mainloop)
+        core = context.connect(None)
+
+        print("Connected to PipeWire core")
+        print(f"PipeWire version: {Pw.get_library_version()}")
+
+        # You can now use the core to interact with PipeWire
+        # This is a basic connection example
+
+    except ImportError:
+        print("pw-python not available")
+        print("Install system packages: python3-pipewire or python3-gi-pipewire")
+
+
+# Example 3: Command-line wrapper for pw-cli
+import subprocess
+import json
+
+def pipewire_cli_wrapper():
+    """Use pw-cli commands via subprocess"""
+    try:
+        # List all nodes (devices, streams, etc.)
+        result = subprocess.run(['pw-cli', 'ls', 'Node'],
+                              capture_output=True, text=True)
+        print("=== PipeWire Nodes ===")
+        print(result.stdout)
+
+        # Get PipeWire info
+        result = subprocess.run(['pw-cli', 'info', '0'],
+                              capture_output=True, text=True)
+        print("\n=== PipeWire Core Info ===")
+        print(result.stdout)
+
+    except FileNotFoundError:
+        print("pw-cli command not found. Make sure PipeWire is installed.")
+
+
+if __name__ == "__main__":
+    print("PipeWire Python Examples\n")
+
+    # Example usage
+    try:
+        print("1. Listing audio devices:")
+        list_audio_devices()
+
+        print("\n2. Setting volume to 50%:")
+        control_volume(0, 50)
+
+        print("\n3. Using PipeWire CLI wrapper:")
+        pipewire_cli_wrapper()
+
+        # Uncomment to monitor events (will run until Ctrl+C)
+        # monitor_events()
+
+    except pulsectl.PulseError as e:
+        print(f"PulseAudio/PipeWire error: {e}")
+    except Exception as e:
+        print(f"Error: {e}")
+
+
 lib64/
 parts/
 sdist/
