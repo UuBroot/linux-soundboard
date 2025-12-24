@@ -9,10 +9,6 @@ from pynput import keyboard
 
 from model.sound_effect import SoundEffect
 
-
-# Assuming this is your local import
-# from model.sound_effect import SoundEffect
-
 class SoundboardHijacker:
     def __init__(self):
         self.original_mic = None
@@ -115,7 +111,7 @@ class SoundboardHijacker:
             subprocess.run(['pactl', 'set-default-source', self.original_mic], capture_output=True)
 
 
-# --- EXECUTION EXAMPLE ---
+# --- EXECUTION EXAMPLE FOR TESTING ---
 if __name__ == "__main__":
     sb = SoundboardHijacker()
     sb.setup()

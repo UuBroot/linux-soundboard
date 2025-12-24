@@ -1,7 +1,8 @@
 import sys
 
-from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel
+from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout
 
+from service.pipewire_hijack_service import SoundboardHijacker
 from service.settings_service import SettingsService
 from service.sounds_service import SoundsService
 from views.overview_grid import GridWidget
@@ -21,6 +22,10 @@ class MainWindow(QMainWindow):
         # Services
         self.sound_service = SoundsService()
         self.settings_service = SettingsService()
+
+        # Soundboard Hijacker
+        sb = SoundboardHijacker()
+        sb.setup()
 
         #Grid Widget
         self.grid_widget = GridWidget(self.sound_service, self)
