@@ -1,13 +1,15 @@
 from PySide6.QtWidgets import QWidget, QLabel
 
+from service.sounds_service import SoundsService
 from views.flow_layout import FlowLayout
 from views.grid_item import GridItem
-
+from service.signal_service import signals
 
 class GridWidget(QWidget):
-    def __init__(self, items=None, parent=None):
+    def __init__(self, sound_service: SoundsService, parent=None):
         super().__init__(parent)
-        self.items = items or []
+        self.items = sound_service.sounds_list
+        signals.sounds_list_changed.connect(self.populate_grid)
 
         # Grid settings
         self.grid_spacing = 10
@@ -21,18 +23,18 @@ class GridWidget(QWidget):
         self.populate_grid()
 
     def populate_grid(self):
-        """Generate grid from list of strings"""
+        """Generate a grid from a list of sound effect objects"""
         # Clear existing widgets
         self.clear_grid()
 
         # Add widgets to the flow layout (will wrap automatically)
-        for text in self.items:
-            item_widget = GridItem(text, self.item_size)
+        for sound_effect_obj in self.items:
+            item_widget = GridItem(sound_effect_obj, self.item_size)
             self.layout.addWidget(item_widget)
 
         # If no sounds are in the list
         if len(self.items) == 0:
-            self.layout.addWidget(QLabel("No sounds found!"))
+            self.layout.addWidget(QLabel("No sounds found! Add some in the Sounds tab."))
 
     def clear_grid(self):
         """Remove all widgets from the grid"""

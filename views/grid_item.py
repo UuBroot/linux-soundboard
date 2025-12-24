@@ -1,10 +1,11 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton
+from model.sound_effect import SoundEffect
 
 
 class GridItem(QWidget):
-    def __init__(self, text, item_size, parent=None):
+    def __init__(self, sound_effect_obj: SoundEffect, item_size, parent=None):
         super().__init__(parent)
-        self.text = text
+        self.sound_effect_obj = sound_effect_obj
         self.item_size = item_size
 
         # Set fixed size to maintain 1:1 aspect ratio
@@ -14,7 +15,7 @@ class GridItem(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        self.button = QPushButton(text)
+        self.button = QPushButton(self.sound_effect_obj.name)
         self.button.setMinimumSize(self.item_size, self.item_size)
         self.button.setMaximumSize(self.item_size, self.item_size)
         self.button.clicked.connect(self._clicked)
@@ -22,4 +23,4 @@ class GridItem(QWidget):
         layout.addWidget(self.button)
 
     def _clicked(self):
-        print(f"Item {self.text} clicked!")
+        print(f"Item {self.sound_effect_obj.name} clicked!")
