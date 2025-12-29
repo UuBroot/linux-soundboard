@@ -4,7 +4,7 @@ from views.configure_sound_popup import ConfigureSoundPopup
 from views.new_sound_popup import NewSoundPopup
 from service.pipewire_hijack_service import sb
 
-def setup_menu_bar(window, sound_service, settings_service):
+def setup_menu_bar(window):
         """Set up the menu bar using the window instance"""
         menu_bar = window.menuBar()
         menu_bar.setNativeMenuBar(False) #is for macOS and disables native menu bars for development
@@ -21,7 +21,7 @@ def setup_menu_bar(window, sound_service, settings_service):
 
         add_sound_action = QAction("&Add Sound", window)
         add_sound_action.setShortcut(QKeySequence.New)
-        add_sound_action.triggered.connect(lambda _: add_sound(window, sound_service))
+        add_sound_action.triggered.connect(lambda _: add_sound(window))
 
         sounds_menu.addAction(add_sound_action)
 
@@ -33,18 +33,18 @@ def setup_menu_bar(window, sound_service, settings_service):
 
         add_sound_action = QAction("&Configure Sounds", window)
         add_sound_action.setShortcut(QKeySequence.Preferences)
-        add_sound_action.triggered.connect(lambda _: configure_sounds(window, settings_service))
+        add_sound_action.triggered.connect(lambda _: configure_sounds(window))
 
         sounds_menu.addAction(add_sound_action)
 
-def add_sound(window, sound_service):
+def add_sound(window):
         print("Add sound!")
-        popup = NewSoundPopup(sound_service, window)
+        popup = NewSoundPopup(window)
         popup.exec()
 
-def configure_sounds(window, settings_service):
+def configure_sounds(window):
     print("Configure sounds!")
-    popup = ConfigureSoundPopup(window.sound_service, settings_service, window)
+    popup = ConfigureSoundPopup(window)
     popup.exec()
 
 def stop_playback():

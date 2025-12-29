@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 def generate_config_path() -> Path:
     home = Path.home()
     config_dir = home / ".config" / "linux-soundboard"
@@ -24,3 +23,4 @@ def generate_default_settings():
         "sound_path": generate_default_sound_path(),
     }
 
+settings_service = SettingsService()

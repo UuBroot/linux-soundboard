@@ -1,12 +1,12 @@
 from PySide6.QtWidgets import QWidget, QLabel
 
-from service.sounds_service import SoundsService
+from service.sounds_service import sound_service
 from views.flow_layout import FlowLayout
 from views.grid_item import GridItem
 from service.signal_service import signals
 
 class GridWidget(QWidget):
-    def __init__(self, sound_service: SoundsService, parent=None):
+    def __init__(self, parent=None):
         super().__init__(parent)
         self.items = sound_service.sounds_list
         signals.sounds_list_changed.connect(self.populate_grid)
@@ -49,4 +49,3 @@ class GridWidget(QWidget):
         """Update the grid with new items"""
         self.items = items
         self.populate_grid()
-

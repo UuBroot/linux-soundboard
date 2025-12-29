@@ -15,3 +15,5 @@ class SoundsService(QObject):
     def add_sound(self,sound: SoundEffect):
         self.sounds_list.append(sound)
         signals.sounds_list_changed.emit(self.sounds_list)
+
+sound_service = SoundsService()

@@ -5,11 +5,11 @@ from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton, QTableW
     QAbstractItemView, QLineEdit
 from PySide6.QtCore import Qt
 
-from service.sounds_service import SoundsService
-
+from service.sounds_service import sound_service
+from service.settings_service import settings_service
 
 class ConfigureSoundPopup(QDialog):
-    def __init__(self, sound_service: SoundsService, settings_service, parent=None):
+    def __init__(self, parent=None):
         super().__init__(parent)
         self.sound_service = sound_service
         self.setWindowTitle("Configure Sounds")

@@ -3,9 +3,10 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout,
                                QGridLayout, QLineEdit, QPushButton, QLabel, QFileDialog, QMessageBox)
 
 from model.sound_effect import SoundEffect
+from service.sounds_service import sound_service
 
 class NewSoundPopup(QDialog):
-    def __init__(self, sound_service,parent=None):
+    def __init__(self,parent=None):
         super().__init__(parent)
         self.setWindowTitle("Add New Sound")
         self.resize(500, 200)  # Larger starting size

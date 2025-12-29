@@ -1,16 +1,14 @@
 import sys
 
-from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout
-
-from service.settings_service import SettingsService
-from service.sounds_service import SoundsService
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QGridLayout, QLabel
 from views.overview_grid import GridWidget
 from views.menu_bar import setup_menu_bar
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Grid Widget Example")
+        self.setWindowTitle("Linux Soundboard")
         self.setGeometry(100, 100, 800, 600)
 
         # Create a central widget and main layout
@@ -18,15 +16,22 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
 
-        # Services
-        self.sound_service = SoundsService()
-        self.settings_service = SettingsService()
+        # Control Row
+        control_row = QWidget()
+        control_layout = QGridLayout()
+        control_row.setLayout(control_layout)
+        control_layout.setAlignment(Qt.AlignTop)
+        control_row.setMaximumHeight(60)
+
+        control_layout.addWidget(QLabel("Soundboard"), 0, 0)
+
+        main_layout.addWidget(control_row)
 
         #Grid Widget
-        self.grid_widget = GridWidget(self.sound_service, self)
+        self.grid_widget = GridWidget(self)
         main_layout.addWidget(self.grid_widget)
 
-        setup_menu_bar(self, self.sound_service, self.settings_service)
+        setup_menu_bar(self)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
