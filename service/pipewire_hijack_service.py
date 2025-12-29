@@ -110,11 +110,12 @@ class SoundboardHijacker:
         if self.original_mic:
             subprocess.run(['pactl', 'set-default-source', self.original_mic], capture_output=True)
 
+# Soundboard Hijacker Object generation.(maybe there is a better way to do this?)
+sb = SoundboardHijacker()
+sb.setup()
 
 # --- EXECUTION EXAMPLE FOR TESTING ---
 if __name__ == "__main__":
-    sb = SoundboardHijacker()
-    sb.setup()
 
     # Define your effects list
     effects = [

@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton
 from model.sound_effect import SoundEffect
-
+from service.pipewire_hijack_service import sb
 
 class GridItem(QWidget):
     def __init__(self, sound_effect_obj: SoundEffect, item_size, parent=None):
@@ -24,3 +24,4 @@ class GridItem(QWidget):
 
     def _clicked(self):
         print(f"Item {self.sound_effect_obj.name} clicked!")
+        sb.play(self.sound_effect_obj)
