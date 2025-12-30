@@ -9,7 +9,7 @@ class GridWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.items = sound_service.sounds_list
-        signals.sounds_list_changed.connect(self.populate_grid)
+        signals.sounds_list_changed.connect(self.set_items)
 
         # Grid settings
         self.grid_spacing = 10
@@ -24,6 +24,7 @@ class GridWidget(QWidget):
 
     def populate_grid(self):
         """Generate a grid from a list of sound effect objects"""
+        print("Populating grid...")
         # Clear existing widgets
         self.clear_grid()
 

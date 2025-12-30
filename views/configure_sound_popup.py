@@ -24,7 +24,8 @@ class ConfigureSoundPopup(QDialog):
 
         curr_settings: Dict = settings_service.settings
         soundpath = Path(curr_settings["sound_path"])
-        self.sound_path.setText(soundpath.as_uri())
+        self.sound_path.setText(soundpath.as_posix())
+        self.sound_path.setReadOnly(True)
 
         layout.addWidget(self.sound_path)
 

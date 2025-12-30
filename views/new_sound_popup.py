@@ -81,8 +81,10 @@ class NewSoundPopup(QDialog):
             "Audio Files (*.mp3 *.wav *.ogg)"
         )
         if file_path:
-            self.path_input.setText(file_path)
-            self.name_input.setText(file_path.split("/")[-1].split(".")[0])
+            sound_effect = SoundEffect(file_path)
+
+            self.path_input.setText(sound_effect.mp3_path)
+            self.name_input.setText(sound_effect.name)
         else:
             print("Invalid file selected")
 
