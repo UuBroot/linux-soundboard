@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout,
                                QGridLayout, QLineEdit, QPushButton, QLabel, QFileDialog, QMessageBox)
 
@@ -81,14 +83,15 @@ class NewSoundPopup(QDialog):
             "Audio Files (*.mp3 *.wav *.ogg)"
         )
         if file_path:
-            sound_effect = SoundEffect(file_path)
+            sound_effect = SoundEffect(Path(file_path))
 
-            self.path_input.setText(sound_effect.mp3_path)
+            self.path_input.setText(str(sound_effect.mp3_path))
             self.name_input.setText(sound_effect.name)
         else:
             print("Invalid file selected")
 
-    def is_file_valid(self, path):
+    @staticmethod
+    def is_file_valid(path):
         """
         Dedicated validation function.
         Returns True only if the file exists and is a supported audio type.
@@ -100,17 +103,10 @@ class NewSoundPopup(QDialog):
         valid_extensions = ('.mp3', '.wav', '.ogg', '.flac')
         return path.lower().endswith(valid_extensions)
 
-    def get_data(self) -> SoundEffect:
-        """Makes the data of the input fields available as a sound effect object."""
-        return SoundEffect(
-            self.path_input.text(),
-            self.name_input.text()
-        )
-
     def add_sound(self):
         if self.is_file_valid(self.path_input.text()):
-            print(self.get_data())
-            self.sound_service.add_sound(self.get_data())
+            print("Adding Sound: ",Path(self.path_input.text()))
+            self.sound_service.add_sound(Path(self.path_input.text()))
             self.accept()
         else:
             QMessageBox.critical(self, "Error", "Could not load the sound file.")

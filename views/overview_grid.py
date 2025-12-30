@@ -1,6 +1,5 @@
 from PySide6.QtWidgets import QWidget, QLabel
 
-from service.sounds_service import sound_service
 from views.flow_layout import FlowLayout
 from views.grid_item import GridItem
 from service.signal_service import signals

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from PySide6.QtCore import QObject
-
+import shutil
 from model.sound_effect import SoundEffect
 from service.signal_service import signals
 from service.settings_service import settings_service
@@ -15,9 +15,17 @@ class SoundsService(QObject):
         self.sounds_list.pop(num)
         signals.sounds_list_changed.emit(self.sounds_list)
 
-    def add_sound(self, sound: SoundEffect):
-        self.sounds_list.append(sound)
-        signals.sounds_list_changed.emit(self.sounds_list)
+    def add_sound(self, path: Path):
+        """Doesn't add the sound to the list, but adds it to the Sounds folder copying it."""
+        sounds_path: Path = Path(settings_service.settings.get("sound_path"))
+        if path.is_file():
+            try:
+                shutil.copy(path, sounds_path)
+                self.update_sounds_from_folder()
+            except Exception as e:
+                print(e)
+        else:
+            print("INTERNAL ERROR: Invalid file selected")
 
     def update_sounds_from_folder(self):
         #resettings current sounds
