@@ -5,6 +5,7 @@ import shutil
 from model.sound_effect import SoundEffect
 from service.signal_service import signals
 from service.settings_service import settings_service
+from service.pipewire_hijack_service import sb
 
 class SoundsService(QObject):
     def __init__(self):
@@ -44,5 +45,9 @@ class SoundsService(QObject):
         #sending update signal
         print(self.sounds_list)
         signals.sounds_list_changed.emit(self.sounds_list)
+
+    @staticmethod
+    def stop_current_sound():
+        sb.stop()
 
 sound_service = SoundsService()

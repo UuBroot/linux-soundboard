@@ -2,6 +2,8 @@ import sys
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QGridLayout, QLabel
+
+from views.control_row import ControlRow
 from views.overview_grid import GridWidget
 from views.menu_bar import setup_menu_bar
 
@@ -17,15 +19,7 @@ class MainWindow(QMainWindow):
         main_layout = QVBoxLayout(central_widget)
 
         # Control Row
-        control_row = QWidget()
-        control_layout = QGridLayout()
-        control_row.setLayout(control_layout)
-        control_layout.setAlignment(Qt.AlignTop)
-        control_row.setMaximumHeight(60)
-
-        control_layout.addWidget(QLabel("Soundboard"), 0, 0)
-
-        main_layout.addWidget(control_row)
+        main_layout.addWidget(ControlRow(self))
 
         #Grid Widget
         self.grid_widget = GridWidget(self)
