@@ -9,9 +9,12 @@ class SettingsService:
         self.settings_path = self.generate_config_path()
         self.settings = self.generate_default_settings()
 
+        print(self.settings)
+
     def generate_default_settings(self) -> dict:
         return {
             "sound_path": self.generate_default_sound_path(),
+            "global_volume": 50,
         }
 
     @staticmethod
