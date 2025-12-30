@@ -4,6 +4,7 @@ from service.sounds_service import sound_service
 from views.flow_layout import FlowLayout
 from views.grid_item import GridItem
 from service.signal_service import signals
+from service.sounds_service import sound_service
 
 class GridWidget(QWidget):
     def __init__(self, parent=None):
@@ -19,8 +20,8 @@ class GridWidget(QWidget):
         self.layout = FlowLayout(self)
         self.layout.setSpacing(self.grid_spacing)
 
-        # Populate grid
-        self.populate_grid()
+        # Update grid
+        sound_service.update_sounds_from_folder()
 
     def populate_grid(self):
         """Generate a grid from a list of sound effect objects"""
