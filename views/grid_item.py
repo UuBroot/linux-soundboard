@@ -1,4 +1,5 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel
 from model.sound_effect import SoundEffect
 from service.pipewire_hijack_service import sb
 from service.settings_service import settings_service
@@ -16,7 +17,15 @@ class GridItem(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        self.button = QPushButton(self.sound_effect_obj.name)
+        self.button = QPushButton()
+        self.button_layout = QVBoxLayout(self.button)
+
+        self.button_label = QLabel(self.sound_effect_obj.name)
+        self.button_label.setWordWrap(True)
+        self.button_label.setAlignment(Qt.AlignCenter)
+        self.button_layout.addWidget(self.button_label)
+
+        self.button.setLayout(self.button_layout)
         self.button.setMinimumSize(self.item_size, self.item_size)
         self.button.setMaximumSize(self.item_size, self.item_size)
         self.button.clicked.connect(self._clicked)
