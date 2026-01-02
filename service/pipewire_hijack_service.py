@@ -56,6 +56,12 @@ class SoundboardHijacker:
         # Set the virtual mic as default system input
         subprocess.run(['pactl', 'set-default-source', 'hijacked_mic'])
 
+        # Explicitly set volumes to 100% and unmute to avoid "lower volume" or "no sound" issues
+        subprocess.run(['pactl', 'set-sink-volume', 'virtual_mic_sink', '100%'], capture_output=True)
+        subprocess.run(['pactl', 'set-sink-mute', 'virtual_mic_sink', '0'], capture_output=True)
+        subprocess.run(['pactl', 'set-source-volume', 'hijacked_mic', '100%'], capture_output=True)
+        subprocess.run(['pactl', 'set-source-mute', 'hijacked_mic', '0'], capture_output=True)
+
         print(f"✅ Setup complete. Virtual Mic Active.")
 
     def _play_thread(self, output_data, sample_rate):
