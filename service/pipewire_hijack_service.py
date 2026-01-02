@@ -64,7 +64,7 @@ class SoundboardHijacker:
 
         print(f"✅ Setup complete. Virtual Mic Active.")
 
-    def _play_thread(self, output_data, sample_rate):
+    def _play_thread(self, audio_data, sample_rate, effect_volume):
         with self._playback_lock:
             try:
                 # Define targets: our virtual mic and the user's speakers
@@ -98,14 +98,20 @@ class SoundboardHijacker:
 
         processes = list(self.playback_processes)
         try:
-            data_bytes = output_data.astype(np.float32).tobytes()
-            chunk_size = 4096  # Write in chunks to allow concurrent playback
-            for i in range(0, len(data_bytes), chunk_size):
-                chunk = data_bytes[i:i + chunk_size]
+            # We work with chunks of the float32 array directly to apply volume in real-time
+            chunk_samples = 1024  # About 23ms at 44.1kHz
+            for i in range(0, len(audio_data), chunk_samples):
+                chunk = audio_data[i:i + chunk_samples]
+                
+                # Apply current volumes: 0.9 (headroom) * effect_volume * global_volume
+                current_global_vol = settings_service.settings.get("global_volume", 1.0)
+                final_chunk = (chunk * 0.9 * effect_volume * current_global_vol).astype(np.float32)
+                chunk_bytes = final_chunk.tobytes()
+
                 for proc in processes:
                     if proc and proc.stdin:
                         try:
-                            proc.stdin.write(chunk)
+                            proc.stdin.write(chunk_bytes)
                         except BrokenPipeError:
                             pass
             
@@ -157,9 +163,6 @@ class SoundboardHijacker:
 
             audio_data, sample_rate = self.audio_cache[str(path)]
 
-            final_volume = 0.9 * effect.volume
-            output_data = audio_data * final_volume
-
             # Refresh default sink to handle output device changes
             try:
                 self.def_sink = subprocess.check_output(['pactl', 'get-default-sink'], text=True).strip()
@@ -170,7 +173,7 @@ class SoundboardHijacker:
 
             print(f"🔊 Playing: {effect.name} (Vol: {effect.volume:.2f})")
 
-            thread = threading.Thread(target=self._play_thread, args=(output_data, sample_rate))
+            thread = threading.Thread(target=self._play_thread, args=(audio_data, sample_rate, effect.volume))
             thread.daemon = True
             thread.start()
 
