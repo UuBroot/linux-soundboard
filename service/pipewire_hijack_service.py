@@ -99,15 +99,22 @@ class SoundboardHijacker:
         processes = list(self.playback_processes)
         try:
             data_bytes = output_data.astype(np.float32).tobytes()
+            chunk_size = 4096  # Write in chunks to allow concurrent playback
+            for i in range(0, len(data_bytes), chunk_size):
+                chunk = data_bytes[i:i + chunk_size]
+                for proc in processes:
+                    if proc and proc.stdin:
+                        try:
+                            proc.stdin.write(chunk)
+                        except BrokenPipeError:
+                            pass
+            
             for proc in processes:
                 if proc and proc.stdin:
                     try:
-                        proc.stdin.write(data_bytes)
                         proc.stdin.close()
-                    except BrokenPipeError:
+                    except (BrokenPipeError, OSError):
                         pass
-            
-            for proc in processes:
                 proc.wait()
                 
         except Exception as e:
@@ -152,6 +159,12 @@ class SoundboardHijacker:
 
             final_volume = 0.9 * effect.volume
             output_data = audio_data * final_volume
+
+            # Refresh default sink to handle output device changes
+            try:
+                self.def_sink = subprocess.check_output(['pactl', 'get-default-sink'], text=True).strip()
+            except subprocess.CalledProcessError:
+                pass
 
             self.stop() # Stop any current playback
 
