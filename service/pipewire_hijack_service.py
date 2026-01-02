@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 import subprocess
 import sys
-import sounddevice as sd
+import threading
 import soundfile as sf
 import numpy as np
-from pathlib import Path
-from pynput import keyboard
 
 from model.sound_effect import SoundEffect
 
@@ -13,10 +11,8 @@ class SoundboardHijacker:
     def __init__(self):
         self.original_mic = None
         self.def_sink = None
-        self.sounds_dir = Path("../sounds")
-        self.sounds_dir.mkdir(exist_ok=True)
-        self.target_idx = None
         self.playback_process = None
+        self._playback_lock = threading.Lock()
         # Cache for loaded audio to prevent disk lag during F-key presses
         self.audio_cache = {}
 
@@ -50,19 +46,53 @@ class SoundboardHijacker:
 
         subprocess.run(['pactl', 'set-default-source', 'hijacked_mic'])
 
-        # 3. Target the SoundDevice Index
-        sd._terminate()
-        sd._initialize()
-        for i, d in enumerate(sd.query_devices()):
-            if "SB_Files_Only" in d['name'] and d['max_output_channels'] > 0:
-                self.target_idx = i
-                break
-
         print(f"✅ Setup complete. Virtual Mic Active.")
 
-    def play(self, effect):
+    def _play_thread(self, output_data, sample_rate):
+        with self._playback_lock:
+            try:
+                # Try pw-play first (PipeWire native)
+                self.playback_process = subprocess.Popen([
+                    'pw-play',
+                    '--target=sb_only',
+                    '--format=f32',
+                    f'--rate={sample_rate}',
+                    '--channels=1',
+                    '--raw',
+                    '-'
+                ], stdin=subprocess.PIPE)
+            except FileNotFoundError:
+                # Fallback to paplay (PulseAudio)
+                self.playback_process = subprocess.Popen([
+                    'paplay',
+                    '--device=sb_only',
+                    '--format=float32ne',
+                    '--channels=1',
+                    f'--rate={sample_rate}',
+                    '--raw'
+                ], stdin=subprocess.PIPE)
+
+        process = self.playback_process
+        try:
+            if process and process.stdin:
+                process.stdin.write(output_data.astype(np.float32).tobytes())
+                process.stdin.close()
+                process.wait()
+        except BrokenPipeError:
+            # Check if process was intentionally terminated
+            with self._playback_lock:
+                if self.playback_process is process:
+                    print("⚠️ Playback process ended prematurely (Broken Pipe).")
+        except Exception as e:
+            print(f"❌ Error during playback streaming: {e}")
+        finally:
+            with self._playback_lock:
+                if self.playback_process is process:
+                    self.playback_process = None
+
+    def play(self, effect: SoundEffect):
         """Plays a SoundEffect object using its specific volume setting."""
-        path = self.sounds_dir / effect.mp3_path
+        path = effect.mp3_path
 
         try:
             # 1. Check Cache first
@@ -89,50 +119,24 @@ class SoundboardHijacker:
             final_volume = 0.9 * effect.volume
             output_data = audio_data * final_volume
 
+            self.stop() # Stop any current playback
+
             print(f"🔊 Playing: {effect.name} (Vol: {effect.volume:.2f})")
-            
-            if self.target_idx is not None:
-                sd.play(output_data, sample_rate, device=self.target_idx)
-            else:
-                # Fallback for Flatpak/Sandbox where PortAudio might not see the virtual sink
-                print("⚠️ Virtual sink not found in PortAudio. Using pw-play/paplay fallback...")
-                self.stop() # Stop any current playback
-                
-                try:
-                    # Try pw-play first (PipeWire native)
-                    self.playback_process = subprocess.Popen([
-                        'pw-play',
-                        '--target=sb_only',
-                        '--format=f32',
-                        f'--rate={sample_rate}',
-                        '--channels=1',
-                        '-'
-                    ], stdin=subprocess.PIPE)
-                except FileNotFoundError:
-                    # Fallback to paplay (PulseAudio)
-                    self.playback_process = subprocess.Popen([
-                        'paplay',
-                        '--device=sb_only',
-                        '--format=float32ne',
-                        '--channels=1',
-                        f'--rate={sample_rate}',
-                        '--raw'
-                    ], stdin=subprocess.PIPE)
-                
-                if self.playback_process.stdin:
-                    self.playback_process.stdin.write(output_data.astype(np.float32).tobytes())
-                    self.playback_process.stdin.close()
+
+            thread = threading.Thread(target=self._play_thread, args=(output_data, sample_rate))
+            thread.daemon = True
+            thread.start()
 
         except Exception as e:
             print(f"❌ Playback error for {effect.name}: {e}")
 
     def stop(self):
         """Immediately stops all playing sounds."""
-        sd.stop()
-        if self.playback_process:
-            self.playback_process.terminate()
-            self.playback_process = None
-        print("🛑 Playback stopped.")
+        with self._playback_lock:
+            if self.playback_process:
+                self.playback_process.terminate()
+                self.playback_process = None
+                print("🛑 Playback stopped.")
 
     def _unload_modules(self):
         subprocess.run(['pactl', 'unload-module', 'module-loopback'], capture_output=True)
@@ -141,6 +145,7 @@ class SoundboardHijacker:
 
     def cleanup(self):
         print("\n🧹 Restoring original audio state...")
+        self.stop()
         self._unload_modules()
         if self.original_mic:
             subprocess.run(['pactl', 'set-default-source', self.original_mic], capture_output=True)
@@ -148,30 +153,3 @@ class SoundboardHijacker:
 # Soundboard Hijacker Object generation.(maybe there is a better way to do this?)
 sb = SoundboardHijacker()
 sb.setup()
-
-# --- EXECUTION EXAMPLE FOR TESTING ---
-if __name__ == "__main__":
-
-    # Define your effects list
-    effects = [
-        SoundEffect("gunshot.mp3", "Gunshot", 0.40),
-        SoundEffect("gunshot.mp3", "Gunshot", 0.80),
-        SoundEffect("auf der spitze der welt-02.mp3", "Geilo", 0.70)
-    ]
-
-    # Map hotkeys to the model objects
-    hotkey_map = {}
-    for i, effect in enumerate(effects[:12]):
-        key = f'<f{i + 1}>'
-        # We use a default argument (eff=effect) to capture the current effect in the loop
-        hotkey_map[key] = (lambda eff=effect: sb.play(eff))
-
-    # Add a stop key
-    hotkey_map['<esc>'] = sb.stop
-
-    with keyboard.GlobalHotKeys(hotkey_map) as h:
-        try:
-            print(f"🔥 READY. F1-{f'F{len(effects)}'} to play. ESC to stop. CTRL+C to quit.")
-            h.join()
-        except KeyboardInterrupt:
-            sb.cleanup()
