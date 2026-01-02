@@ -63,7 +63,7 @@ class ConfigureSoundPopup(QDialog):
         for row, sound in enumerate(self.sound_service.sounds_list):
             # Create table items from the object attributes
             name_item = QTableWidgetItem(sound.name)
-            path_item = QTableWidgetItem(sound.mp3_path)
+            path_item = QTableWidgetItem(str(sound.mp3_path))
 
             delete_btn = QPushButton("Delete")
             delete_btn.setStyleSheet("background-color: #e74c3c; color: white; font-weight: bold;")

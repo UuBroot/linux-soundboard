@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from PySide6.QtCore import QObject
@@ -13,8 +14,10 @@ class SoundsService(QObject):
         self.sounds_list: list[SoundEffect] = []
 
     def delete_sound_by_id(self, num):
-        self.sounds_list.pop(num)
-        signals.sounds_list_changed.emit(self.sounds_list)
+        path = self.sounds_list[num].mp3_path
+        if path.is_file():
+            os.remove(path)
+        self.update_sounds_from_folder()
 
     def add_sound(self, path: Path):
         """Doesn't add the sound to the list, but adds it to the Sounds folder copying it."""

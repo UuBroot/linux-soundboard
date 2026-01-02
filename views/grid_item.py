@@ -10,7 +10,6 @@ class GridItem(QWidget):
         self.sound_effect_obj = sound_effect_obj
         self.item_size = item_size
 
-        # Set fixed size to maintain 1:1 aspect ratio
         self.setFixedSize(self.item_size, self.item_size)
 
         # Create layout and button
