@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop">
+  <id>com.uubroot.Soundboard</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-only</project_license>
+  <name>Soundboard</name>
+  <summary>A simple soundboard for Linux</summary>
+  <developer id="com.uubroot">
+    <name>UuBroot, FinalTrashCan</name>
+  </developer>
+  <description>
+    <p>
+      Soundboard is a simple application for Linux that allows you to play sound effects through a virtual microphone.
+    </p>
+  </description>
+  <launchable type="desktop-id">com.uubroot.Soundboard.desktop</launchable>
+  <content_rating type="oars-1.1" />
+  <url type="homepage">https://github.com/uubroot/linux-soundboard</url>
+  <provides>
+    <id>com.uubroot.Soundboard.desktop</id>
+  </provides>
+</component>
