@@ -1,0 +1,21 @@
+app-id: com.uubroot.Soundboard
+runtime: org.freedesktop.Platform
+runtime-version: '25.08'
+sdk: org.freedesktop.Sdk
+command: start-app
+finish-args:
+  - --share=ipc
+  - --socket=x11
+  - --socket=wayland
+  - --device=dri
+  - --share=network
+
+modules:
+  # Use the pip-generator to create this JSON for 25.08
+  - python-deps.json
+
+  - name: my-pyside-app
+    buildsystem: simple
+    path: .
+    build-commands:
+      - install -D main.py /app/bin/start-app

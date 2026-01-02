@@ -208,3 +208,6 @@ __marimo__/
 
 # Sounds for testing
 sounds
+
+# Building the flatpak
+.flatpak-builder
