@@ -16,7 +16,8 @@ class SettingsService:
             "sound_path": self.generate_default_sound_path(),
             "global_volume": 1.0,
             "allow_distortion": False,#volumn over 100%
-            "wakeup_noise": False
+            "wakeup_noise": False,
+            "output_device": "" #default is "". it will look for default output device in hijack service
         }
 
     @staticmethod

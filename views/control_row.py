@@ -1,9 +1,9 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPalette
-from PySide6.QtWidgets import QFrame, QPushButton, QStyle, QSlider, QHBoxLayout, QLabel, QCheckBox
+from PySide6.QtWidgets import QFrame, QPushButton, QStyle, QSlider, QHBoxLayout, QLabel, QCheckBox, QComboBox
 from service.sounds_service import sound_service
 from service.settings_service import settings_service
-from service.signal_service import signals
+from service.pipewire_hijack_service import sb
 
 class ControlRow(QFrame):
     def __init__(self, parent=None):
@@ -55,6 +55,22 @@ class ControlRow(QFrame):
         allow_distortion_button.stateChanged.connect(self._update_allow_distortion)
         layout.addWidget(allow_distortion_button)
 
+        #mic selection
+        mic_selection_box = QFrame(self)
+        mic_selection_box.setMaximumWidth(200)
+        mic_selection_layout = QHBoxLayout(mic_selection_box)
+
+        mic_selection_layout.addWidget(QLabel("Microphone:"))
+
+        self.mic_selection = QComboBox()
+        self.mic_selection.addItem("Default")
+        self.mic_selection.addItems(sb.get_all_available_microphone_devices())
+        self.mic_selection.currentIndexChanged.connect(self._changed_mic_selection)
+
+        mic_selection_layout.addWidget(self.mic_selection)
+
+        layout.addWidget(mic_selection_box)
+
     def update_volume(self, value):
         # Convert percentage to float
         float_value = value / 100.0
@@ -62,6 +78,13 @@ class ControlRow(QFrame):
         self.volume_label.setText(f"Volume: {value}%")
         settings_service.settings["global_volume"] = float_value
 
+    def _changed_mic_selection(self, index):
+        print(f"Selected mic: {self.mic_selection.currentText()}")
+        if self.mic_selection.currentText() == "Default":
+            settings_service.settings["output_device"] = ""
+        else:
+            settings_service.settings["output_device"] = self.mic_selection.currentText()
+        sb.setup()
 
     def _update_allow_distortion(self, value):
         if value == 0:

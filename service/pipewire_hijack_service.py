@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import json
 import subprocess
 import sys
 import threading
@@ -18,14 +19,21 @@ class SoundboardHijacker:
         self.audio_cache = {}
 
     def setup(self):
-        print("Cleaning audio modules...")
-        self._unload_modules()
+        print("Cleaning up...")
+        self.cleanup()
 
         print("Setting up virtual mic...")
         try:
             """Tries to get the original mic and default sink. This is not only useful for restoring the original mic but is also a test to see if pipewire/pulseaudio is running"""
+            output_device_setting = settings_service.settings["output_device"]
+            if output_device_setting == "":
+                print("No output device set. Using default.")
+                self.original_mic = subprocess.check_output(['pactl', 'get-default-source'], text=True).strip()
+                print("using default mic:", self.original_mic)
+            else:
+                print("using output device:", output_device_setting)
+                self.original_mic = self.get_source_by_name(output_device_setting)
 
-            self.original_mic = subprocess.check_output(['pactl', 'get-default-source'], text=True).strip()
             self.def_sink = subprocess.check_output(['pactl', 'get-default-sink'], text=True).strip()
         except subprocess.CalledProcessError:
             print("❌ Error: Audio system not responding. Is PipeWire/PulseAudio running?")
@@ -213,6 +221,52 @@ class SoundboardHijacker:
             subprocess.run(['pactl', 'set-default-source', self.original_mic], capture_output=True)
             
         self._unload_modules()
+
+    @staticmethod
+    def get_default_microphone():
+        return subprocess.check_output(['pactl', 'get-default-source'], text=True).strip()
+
+    def get_source_by_name(self, name):
+        all_microphones = self.get_all_available_microphone_devices()
+        return all_microphones.get(name, "")
+
+    @staticmethod
+    def get_all_available_microphone_devices():
+        """Returns a dict mapping 'Description' -> 'Technical Name'"""
+        try:
+            # Using JSON format here is much cleaner than manual string parsing
+            result = subprocess.run(
+                ['pactl', '--format=json', 'list', 'sources'],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            sources = json.loads(result.stdout)
+
+            # Map of Description -> Technical Name
+            device_map = {}
+
+            for s in sources:
+                name = s.get("name", "")
+                # Get the best available description
+                description = s.get("description") or s.get("properties", {}).get("device.description") or name
+
+                # Filter logic
+                if ".monitor" in name or name == "hijacked_mic":
+                    continue
+
+                # PulseAudio JSON structure puts device.class inside 'properties'
+                props = s.get("properties", {})
+                device_class = props.get("device.class")
+                media_class = props.get("media.class")
+
+                if device_class == "sound" or media_class == "Audio/Source":
+                    device_map[description] = name
+
+            return device_map
+        except Exception as e:
+            print(f"Error getting microphones: {e}")
+            return {}
 
 # Soundboard Hijacker Object generation.(maybe there is a better way to do this?)
 sb = SoundboardHijacker()
