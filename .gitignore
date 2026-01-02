@@ -212,5 +212,7 @@ sounds
 #flatpak build
 .flatpak-builder
 build-dir
+repo
+flatpak-pip-generator.py
 python-deps.json
 soundboard.flatpak
