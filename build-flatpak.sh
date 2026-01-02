@@ -15,12 +15,15 @@ python3 flatpak-pip-generator.py \
 
 flatpak-builder --user --force-clean --install --install-deps-from=flathub --disable-rofiles-fuse build-dir com.uubroot.Soundboard.yml
 
+flatpak build-export repo build-dir
+
+flatpak build-bundle repo soundboard.flatpak com.uubroot.Soundboard
 #---
 
 echo "Cleaning up ..."
 
 echo "removing pip generator"
 rm flatpak-pip-generator.py
-#rm python-deps.json
-#sudo rm -rf build-dir .flatpak-builder
+rm python-deps.json
+sudo rm -rf build-dir .flatpak-builder
 

@@ -213,3 +213,4 @@ sounds
 .flatpak-builder
 build-dir
 python-deps.json
+soundboard.flatpak
