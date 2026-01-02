@@ -15,6 +15,7 @@ class SettingsService:
         return {
             "sound_path": self.generate_default_sound_path(),
             "global_volume": 1.0,
+            "allow_distortion": False,#volumn over 100%
             "wakeup_noise": False
         }
 

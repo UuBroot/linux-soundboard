@@ -1,8 +1,9 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPalette
-from PySide6.QtWidgets import QFrame, QPushButton, QStyle, QSlider, QHBoxLayout, QLabel
+from PySide6.QtWidgets import QFrame, QPushButton, QStyle, QSlider, QHBoxLayout, QLabel, QCheckBox
 from service.sounds_service import sound_service
 from service.settings_service import settings_service
+from service.signal_service import signals
 
 class ControlRow(QFrame):
     def __init__(self, parent=None):
@@ -18,7 +19,6 @@ class ControlRow(QFrame):
         self.setPalette(palette)
         self.setAutoFillBackground(True)
         self.setLineWidth(1)
-
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(2, 2, 2, 2)
@@ -41,7 +41,7 @@ class ControlRow(QFrame):
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.slider.setMinimum(0)
         self.slider.setMaximum(100)
-        self.slider.setValue(50)
+        self.slider.setValue(100)
 
         self.slider.valueChanged.connect(self.update_volume)
 
@@ -49,12 +49,30 @@ class ControlRow(QFrame):
         volume_frame_layout.addWidget(self.slider)
         layout.addWidget(volume_frame)
 
+        #allow distortion button
+        allow_distortion_button = QCheckBox("Allow Distortion")
+        allow_distortion_button.setChecked(settings_service.settings["allow_distortion"]) #sets default from settings service
+        allow_distortion_button.stateChanged.connect(self._update_allow_distortion)
+        layout.addWidget(allow_distortion_button)
+
     def update_volume(self, value):
         # Convert percentage to float
         float_value = value / 100.0
         print(f"Volume set to {float_value}")
         self.volume_label.setText(f"Volume: {value}%")
         settings_service.settings["global_volume"] = float_value
+
+
+    def _update_allow_distortion(self, value):
+        if value == 0:
+            settings_service.settings["allow_distortion"] = False
+            self.slider.setMaximum(100)
+        else:
+            settings_service.settings["allow_distortion"] = True
+            self.slider.setMaximum(1000)
+
+
+        print(f"Allow Distortion set to {settings_service.settings['allow_distortion']}")
 
     @staticmethod
     def on_stop_clicked():
