@@ -14,7 +14,8 @@ class SettingsService:
     def generate_default_settings(self) -> dict:
         return {
             "sound_path": self.generate_default_sound_path(),
-            "global_volume": 50,
+            "global_volume": 1.0,
+            "wakeup_noise": False
         }
 
     @staticmethod

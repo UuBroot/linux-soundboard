@@ -6,21 +6,26 @@ import soundfile as sf
 import numpy as np
 
 from model.sound_effect import SoundEffect
+from service.settings_service import settings_service
 
 class SoundboardHijacker:
     def __init__(self):
         self.original_mic = None
         self.def_sink = None
-        self.playback_process = None
+        self.playback_processes = []
         self._playback_lock = threading.Lock()
+        self.module_ids = []
         # Cache for loaded audio to prevent disk lag during F-key presses
         self.audio_cache = {}
 
     def setup(self):
-        print("🧹 Cleaning audio modules...")
+        print("Cleaning audio modules...")
         self._unload_modules()
 
+        print("Setting up virtual mic...")
         try:
+            """Tries to get the original mic and default sink. This is not only useful for restoring the original mic but is also a test to see if pipewire/pulseaudio is running"""
+
             self.original_mic = subprocess.check_output(['pactl', 'get-default-source'], text=True).strip()
             self.def_sink = subprocess.check_output(['pactl', 'get-default-sink'], text=True).strip()
         except subprocess.CalledProcessError:
@@ -28,22 +33,27 @@ class SoundboardHijacker:
             sys.exit(1)
 
         # 1. Create Routing Topology
-        subprocess.run(['pactl', 'load-module', 'module-null-sink', 'sink_name=sb_only',
-                        'sink_properties=device.description="SB_Files_Only"'])
-        subprocess.run(['pactl', 'load-module', 'module-null-sink', 'sink_name=final_mix',
-                        'sink_properties=device.description="Final_Mixer"'])
-        subprocess.run(
-            ['pactl', 'load-module', 'module-remap-source', 'master=final_mix.monitor', 'source_name=hijacked_mic',
-             'source_properties=device.description="Hijacked_Mic"'])
+        # We create one null sink that acts as our "Virtual Microphone"
+        res = subprocess.run(['pactl', 'load-module', 'module-null-sink', 'sink_name=virtual_mic_sink',
+                        'sink_properties=device.description="Virtual_Mic_Sink"'], capture_output=True, text=True)
+        if res.returncode == 0:
+            self.module_ids.append(res.stdout.strip())
+        
+        # Expose the monitor of the null sink as a proper Microphone source
+        res = subprocess.run(
+            ['pactl', 'load-module', 'module-remap-source', 'master=virtual_mic_sink.monitor', 'source_name=hijacked_mic',
+             'source_properties=device.description="Hijacked_Mic"'], capture_output=True, text=True)
+        if res.returncode == 0:
+            self.module_ids.append(res.stdout.strip())
 
         # 2. Patch Cables
-        subprocess.run(['pactl', 'load-module', 'module-loopback', f'source={self.original_mic}', 'sink=final_mix',
-                        'latency_msec=20'])
-        subprocess.run(
-            ['pactl', 'load-module', 'module-loopback', 'source=sb_only.monitor', 'sink=final_mix', 'latency_msec=20'])
-        subprocess.run(['pactl', 'load-module', 'module-loopback', 'source=sb_only.monitor', f'sink={self.def_sink}',
-                        'latency_msec=20'])
+        # Route real mic into the virtual mic sink
+        res = subprocess.run(['pactl', 'load-module', 'module-loopback', f'source={self.original_mic}', 'sink=virtual_mic_sink',
+                        'latency_msec=20'], capture_output=True, text=True)
+        if res.returncode == 0:
+            self.module_ids.append(res.stdout.strip())
 
+        # Set the virtual mic as default system input
         subprocess.run(['pactl', 'set-default-source', 'hijacked_mic'])
 
         print(f"✅ Setup complete. Virtual Mic Active.")
@@ -51,44 +61,58 @@ class SoundboardHijacker:
     def _play_thread(self, output_data, sample_rate):
         with self._playback_lock:
             try:
-                # Try pw-play first (PipeWire native)
-                self.playback_process = subprocess.Popen([
-                    'pw-play',
-                    '--target=sb_only',
-                    '--format=f32',
+                # Define targets: our virtual mic and the user's speakers
+                targets = [
+                    ('pw-play', '--target=virtual_mic_sink'),
+                    ('pw-play', f'--target={self.def_sink}')
+                ]
+                
+                # Check if pw-play exists by trying to run it
+                subprocess.run(['pw-play', '--version'], capture_output=True, check=True)
+                use_pw = True
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                use_pw = False
+                targets = [
+                    ('paplay', '--device=virtual_mic_sink'),
+                    ('paplay', f'--device={self.def_sink}')
+                ]
+
+            for cmd_base, target_flag in targets:
+                cmd = [
+                    cmd_base,
+                    target_flag,
+                    '--format=f32' if use_pw else '--format=float32ne',
                     f'--rate={sample_rate}',
                     '--channels=1',
                     '--raw',
                     '-'
-                ], stdin=subprocess.PIPE)
-            except FileNotFoundError:
-                # Fallback to paplay (PulseAudio)
-                self.playback_process = subprocess.Popen([
-                    'paplay',
-                    '--device=sb_only',
-                    '--format=float32ne',
-                    '--channels=1',
-                    f'--rate={sample_rate}',
-                    '--raw'
-                ], stdin=subprocess.PIPE)
+                ]
+                proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+                self.playback_processes.append(proc)
 
-        process = self.playback_process
+        processes = list(self.playback_processes)
         try:
-            if process and process.stdin:
-                process.stdin.write(output_data.astype(np.float32).tobytes())
-                process.stdin.close()
-                process.wait()
-        except BrokenPipeError:
-            # Check if process was intentionally terminated
-            with self._playback_lock:
-                if self.playback_process is process:
-                    print("⚠️ Playback process ended prematurely (Broken Pipe).")
+            data_bytes = output_data.astype(np.float32).tobytes()
+            for proc in processes:
+                if proc and proc.stdin:
+                    try:
+                        proc.stdin.write(data_bytes)
+                        proc.stdin.close()
+                    except BrokenPipeError:
+                        pass
+            
+            for proc in processes:
+                proc.wait()
+                
         except Exception as e:
             print(f"❌ Error during playback streaming: {e}")
         finally:
             with self._playback_lock:
-                if self.playback_process is process:
-                    self.playback_process = None
+                # Only clear if these are the same processes we started
+                if all(p in self.playback_processes for p in processes):
+                    for p in processes:
+                        if p in self.playback_processes:
+                            self.playback_processes.remove(p)
 
     def play(self, effect: SoundEffect):
         """Plays a SoundEffect object using its specific volume setting."""
@@ -108,11 +132,15 @@ class SoundboardHijacker:
                 if max_val > 0:
                     data = (data / max_val)
 
-                # Prepend the 'wake up' noise for Krisp
-                noise_floor = np.random.normal(0, 0.005, int(fs * 0.1))
-                processed_data = np.concatenate([noise_floor, data])
+                # Prepend the 'wake up' noise for Krisp (Optional)
+                if settings_service.settings["wakeup_noise"]:
+                    print("Adding wakeup noise...")
+                    noise_floor = np.random.normal(0, 0.005, int(fs * 0.1))
+                    processed_data = np.concatenate([noise_floor, data])
 
-                self.audio_cache[str(path)] = (processed_data, fs)
+                    self.audio_cache[str(path)] = (processed_data, fs)
+                else:
+                    self.audio_cache[str(path)] = (data, fs)
 
             audio_data, sample_rate = self.audio_cache[str(path)]
 
@@ -133,22 +161,37 @@ class SoundboardHijacker:
     def stop(self):
         """Immediately stops all playing sounds."""
         with self._playback_lock:
-            if self.playback_process:
-                self.playback_process.terminate()
-                self.playback_process = None
+            if self.playback_processes:
+                for proc in self.playback_processes:
+                    proc.terminate()
+                self.playback_processes.clear()
                 print("🛑 Playback stopped.")
 
     def _unload_modules(self):
-        subprocess.run(['pactl', 'unload-module', 'module-loopback'], capture_output=True)
-        subprocess.run(['pactl', 'unload-module', 'module-null-sink'], capture_output=True)
-        subprocess.run(['pactl', 'unload-module', 'module-remap-source'], capture_output=True)
+        if self.module_ids:
+            for mid in reversed(self.module_ids):
+                subprocess.run(['pactl', 'unload-module', mid], capture_output=True)
+            self.module_ids.clear()
+        else:
+            # Fallback for when we don't have IDs (e.g. initial setup cleanup)
+            # We try to unload by name to be as specific as possible
+            # Note: pactl doesn't support unloading by name directly easily without grep/awk
+            # so we keep the type-based unload as a last resort for initial cleanup
+            print("Falling back to unloading modules by type. THERE MAY BE LINGERING MODULES.")
+            subprocess.run(['pactl', 'unload-module', 'module-loopback'], capture_output=True)
+            subprocess.run(['pactl', 'unload-module', 'module-null-sink'], capture_output=True)
+            subprocess.run(['pactl', 'unload-module', 'module-remap-source'], capture_output=True)
 
     def cleanup(self):
-        print("\n🧹 Restoring original audio state...")
+        print("Restoring original audio state...")
         self.stop()
-        self._unload_modules()
+        
+        # Ensure we set the default source back BEFORE unloading the module it belongs to
         if self.original_mic:
+            print(f"Restoring original mic: {self.original_mic}")
             subprocess.run(['pactl', 'set-default-source', self.original_mic], capture_output=True)
+            
+        self._unload_modules()
 
 # Soundboard Hijacker Object generation.(maybe there is a better way to do this?)
 sb = SoundboardHijacker()
