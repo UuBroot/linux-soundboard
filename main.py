@@ -1,7 +1,7 @@
+#!/usr/bin/env python3
 import sys
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QGridLayout, QLabel
+from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout
 
 from views.control_row import ControlRow
 from views.overview_grid import GridWidget

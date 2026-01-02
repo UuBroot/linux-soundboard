@@ -16,6 +16,7 @@ class SoundboardHijacker:
         self.sounds_dir = Path("../sounds")
         self.sounds_dir.mkdir(exist_ok=True)
         self.target_idx = None
+        self.playback_process = None
         # Cache for loaded audio to prevent disk lag during F-key presses
         self.audio_cache = {}
 
@@ -89,7 +90,38 @@ class SoundboardHijacker:
             output_data = audio_data * final_volume
 
             print(f"🔊 Playing: {effect.name} (Vol: {effect.volume:.2f})")
-            sd.play(output_data, sample_rate, device=self.target_idx)
+            
+            if self.target_idx is not None:
+                sd.play(output_data, sample_rate, device=self.target_idx)
+            else:
+                # Fallback for Flatpak/Sandbox where PortAudio might not see the virtual sink
+                print("⚠️ Virtual sink not found in PortAudio. Using pw-play/paplay fallback...")
+                self.stop() # Stop any current playback
+                
+                try:
+                    # Try pw-play first (PipeWire native)
+                    self.playback_process = subprocess.Popen([
+                        'pw-play',
+                        '--target=sb_only',
+                        '--format=f32',
+                        f'--rate={sample_rate}',
+                        '--channels=1',
+                        '-'
+                    ], stdin=subprocess.PIPE)
+                except FileNotFoundError:
+                    # Fallback to paplay (PulseAudio)
+                    self.playback_process = subprocess.Popen([
+                        'paplay',
+                        '--device=sb_only',
+                        '--format=float32ne',
+                        '--channels=1',
+                        f'--rate={sample_rate}',
+                        '--raw'
+                    ], stdin=subprocess.PIPE)
+                
+                if self.playback_process.stdin:
+                    self.playback_process.stdin.write(output_data.astype(np.float32).tobytes())
+                    self.playback_process.stdin.close()
 
         except Exception as e:
             print(f"❌ Playback error for {effect.name}: {e}")
@@ -97,6 +129,9 @@ class SoundboardHijacker:
     def stop(self):
         """Immediately stops all playing sounds."""
         sd.stop()
+        if self.playback_process:
+            self.playback_process.terminate()
+            self.playback_process = None
         print("🛑 Playback stopped.")
 
     def _unload_modules(self):
