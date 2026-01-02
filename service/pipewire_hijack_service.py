@@ -15,7 +15,6 @@ class SoundboardHijacker:
         self.playback_processes = []
         self._playback_lock = threading.Lock()
         self.module_ids = []
-        # Cache for loaded audio to prevent disk lag during F-key presses
         self.audio_cache = {}
 
     def setup(self):
