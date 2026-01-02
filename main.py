@@ -28,9 +28,12 @@ class MainWindow(QMainWindow):
 
         setup_menu_bar(self)
 
-if __name__ == "__main__":
+def main():
     app = QApplication(sys.argv)
     app.aboutToQuit.connect(sb.cleanup)
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
+
+if __name__ == "__main__":
+    main()

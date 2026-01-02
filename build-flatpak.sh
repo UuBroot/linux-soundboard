@@ -1,8 +1,5 @@
 #!/bin/bash
 
-echo "This script requires sudo for certain commands. Please authenticate:"
-sudo -v
-
 flatpak install --user flathub org.kde.Sdk//6.9 -y
 
 curl https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/refs/heads/master/pip/flatpak-pip-generator.py -o flatpak-pip-generator.py
@@ -25,5 +22,5 @@ echo "Cleaning up ..."
 echo "removing pip generator"
 rm flatpak-pip-generator.py
 rm python-deps.json
-sudo rm -rf build-dir .flatpak-builder
+rm -rf build-dir .flatpak-builder
 
