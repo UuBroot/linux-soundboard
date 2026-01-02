@@ -208,3 +208,8 @@ __marimo__/
 
 # Sounds for testing
 sounds
+
+#flatpak build
+.flatpak-builder
+build-dir
+python-deps.json
