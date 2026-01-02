@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Soundboard
+Comment=A simple soundboard for Linux
+Exec=start-app
+Icon=icon.jpg
+Terminal=false
+Categories=AudioVideo;Audio;
