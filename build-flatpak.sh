@@ -22,5 +22,5 @@ echo "Cleaning up ..."
 echo "removing pip generator"
 rm flatpak-pip-generator.py
 rm python-deps.json
-rm -rf build-dir .flatpak-builder
+rm -rf build-dir .flatpak-builder repo
 
