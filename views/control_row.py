@@ -37,7 +37,7 @@ class ControlRow(QFrame):
         volume_frame_layout = QHBoxLayout(volume_frame)
         volume_frame.setMaximumWidth(200)
 
-        self.volume_label = QLabel("Volume: 50%")
+        self.volume_label = QLabel("Volume: 100%")
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.slider.setMinimum(0)
         self.slider.setMaximum(100)
