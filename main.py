@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout
 from views.control_row import ControlRow
 from views.overview_grid import GridWidget
 from views.menu_bar import setup_menu_bar
+from service.pipewire_hijack_service import sb
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -29,6 +30,7 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    app.aboutToQuit.connect(sb.cleanup)
     window = MainWindow()
     window.show()
     sys.exit(app.exec())

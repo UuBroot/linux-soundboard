@@ -1,5 +1,4 @@
 pyside6
-sounddevice
 soundfile
 numpy
 pynput
