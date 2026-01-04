@@ -4,7 +4,7 @@ runtime-version: '6.9'
 sdk: org.kde.Sdk//6.9
 base: io.qt.PySide.BaseApp
 base-version: '6.9'
-command: start-app
+command: com.uubroot.Soundboard
 finish-args:
   - --share=ipc
   - --socket=x11
@@ -23,7 +23,6 @@ modules:
         sha256: 3799ca9924d3125038880367bf1468e53a1b7e3686a934f098b7e1d286cdb80e
     cleanup:
       - /bin
-      - /include
 
   - name: portaudio
     config-opts:
@@ -35,7 +34,6 @@ modules:
         url: https://files.portaudio.com/archives/pa_stable_v190700_20210406.tgz
         sha256: 47efbf42c77c19a05d22e627d42873e991ec0c1357219c0d74ce6a2948cb2def
     cleanup:
-      - /include
       - /lib/pkgconfig
 
   - name: python3-packaging
@@ -49,24 +47,7 @@ modules:
 
   - python-deps.json
   - name: soundboard-app
-    buildsystem: simple
-    build-commands:
-      # 1. Create the destination directory
-      - mkdir -p /app/lib/soundboard
-      # 2. Copy everything to that directory
-      - cp -R . /app/lib/soundboard/
-      # 3. Create a launcher script in /app/bin
-      - |
-        cat <<EOF > /app/bin/start-app
-        #!/bin/sh
-        # Link the C-libraries compiled in /app/lib (PortAudio, libsndfile)
-        export LD_LIBRARY_PATH="/app/lib:\${LD_LIBRARY_PATH}"
-        # Link your Python code
-        export PYTHONPATH="/app/lib/soundboard:\${PYTHONPATH}"
-        exec python3 /app/lib/soundboard/main.py "\$@"
-        EOF
-      # 4. Make the launcher executable
-      - chmod +x /app/bin/start-app
+    buildsystem: meson
     sources:
       - type: dir
         path: .

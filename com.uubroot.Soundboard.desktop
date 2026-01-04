@@ -2,7 +2,7 @@
 Type=Application
 Name=Soundboard
 Comment=A simple soundboard for Linux
-Exec=start-app
-Icon=icon.jpg
+Exec=com.uubroot.Soundboard
+Icon=com.uubroot.Soundboard.jpg
 Terminal=false
 Categories=AudioVideo;Audio;
