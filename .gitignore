@@ -216,3 +216,8 @@ repo
 flatpak-pip-generator.py
 python-deps.json
 soundboard.flatpak
+
+# AppImage build
+build-appimage/
+linuxdeploy-*.AppImage
+*.AppImage
