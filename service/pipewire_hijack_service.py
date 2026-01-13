@@ -271,4 +271,7 @@ class SoundboardHijacker:
 
 # Soundboard Hijacker Object generation.(maybe there is a better way to do this?)
 sb = SoundboardHijacker()
-sb.setup()
+try:
+    sb.setup()
+except Exception as e:
+    print("!!! Pipewire setup failed.")

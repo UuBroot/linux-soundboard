@@ -1,49 +1,66 @@
-from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout,
-                               QVBoxLayout, QListWidget, QStackedWidget, QLabel, QFrame)
+from PySide6.QtWidgets import (QHBoxLayout, QVBoxLayout, QListWidget, QStackedWidget, QLabel, QFrame, QDialog,
+                               QLineEdit, QComboBox, QCheckBox)
 from PySide6.QtCore import Qt
 
+from service.settings_service import settings_service
+from service.sounds_service import sound_service
+from service.signal_service import signals
 
-class SidebarWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Sidebar Navigation Example")
+class SettingsPopup(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Settings")
         self.resize(800, 500)
 
-        # 1. Main Layout (Horizontal)
-        self.main_layout = QHBoxLayout()
+        # Main Layout (Horizontal)
+        self.main_layout = QHBoxLayout(self)
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.setSpacing(0)
 
-        # 2. Setup the Sidebar (QListWidget)
+        # Setup the Sidebar (QListWidget)
         self.sidebar = QListWidget()
         self.sidebar.setFixedWidth(150)
-        self.sidebar.addItems(["Dashboard", "Soundboard", "Settings", "About"])
 
-        # Style the sidebar slightly
-        self.sidebar.setStyleSheet("""
-            QListWidget {
-                background-color: #2c3e50;
-                color: white;
-                border: none;
-                font-size: 14px;
-            }
-            QListWidget::item {
-                padding: 15px;
-            }
-            QListWidget::item:selected {
-                background-color: #34495e;
-                border-left: 5px solid #3498db;
-            }
-        """)
+        self.sidebar.addItems(["Folders", "Pipewire", "About"])
 
-        # 3. Setup the Right-Side Content (QStackedWidget)
+        # Setup the Right-Side Content (QStackedWidget)
         self.content_stack = QStackedWidget()
 
-        # Create different pages
-        self.content_stack.addWidget(self.create_page("Welcome to the Dashboard", "#ecf0f1"))
-        self.content_stack.addWidget(self.create_page("Your Sounds go here", "#bdc3c7"))
-        self.content_stack.addWidget(self.create_page("System Settings", "#95a5a6"))
-        self.content_stack.addWidget(self.create_page("About Linux Soundboard", "#7f8c8d"))
+        # Folder Conf
+        folder_conf_page = QFrame()
+        folder_conf_layout = QVBoxLayout(folder_conf_page)
+        folder_conf_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        folder_conf_layout.addWidget(QLabel("Music Folder:"))
+        sound_path = settings_service.settings.get("sound_path")
+        self.sound_path_input = QLineEdit(str(sound_path))
+        self.sound_path_input.textChanged.connect(self._path_changed)
+        folder_conf_layout.addWidget(self.sound_path_input)
+        self.content_stack.addWidget(folder_conf_page)
+
+        # Pipewire Conf
+        pipewire_conf_page = QFrame()
+        pipewire_conf_layout = QVBoxLayout(pipewire_conf_page)
+        pipewire_conf_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        pipewire_conf_layout.addWidget(QLabel("Pipewire Configuration:"))
+        do_wakeup_noise = QCheckBox("Make a Wakeup noise")
+        do_wakeup_noise.setChecked(settings_service.settings.get("wakeup_noise"))
+        do_wakeup_noise.clicked.connect(self._do_wakeup_noise_changed)
+
+        pipewire_conf_layout.addWidget(do_wakeup_noise)
+
+        self.content_stack.addWidget(pipewire_conf_page)
+
+        # About
+        about_page = QFrame()
+        about_conf_layout = QVBoxLayout(about_page)
+        about_conf_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        about_conf_layout.addWidget(QLabel("About"))
+        about_conf_layout.addWidget(QLabel("Version 0.0.1"))
+
+        self.content_stack.addWidget(about_page)
 
         # 4. Connect Sidebar to the Stack
         # currentRowChanged sends the index of the clicked item
@@ -53,17 +70,15 @@ class SidebarWindow(QMainWindow):
         self.main_layout.addWidget(self.sidebar)
         self.main_layout.addWidget(self.content_stack)
 
-        container = QWidget()
-        container.setLayout(self.main_layout)
-        self.setCentralWidget(container)
+    @staticmethod
+    def _path_changed(value):
+        print("Path changed!", value)
+        settings_service.settings["sound_path"] = value
+        sound_service.update_sounds_from_folder()
 
-    def create_page(self, text, bg_color):
-        """Helper to create a simple widget for each view"""
-        page = QFrame()
-        page.setStyleSheet(f"background-color: {bg_color};")
-        layout = QVBoxLayout(page)
-        label = QLabel(text)
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        label.setStyleSheet("font-size: 20px; color: #2c3e50; font-weight: bold;")
-        layout.addWidget(label)
-        return page
+        signals.settings_changed.emit()
+
+    @staticmethod
+    def _do_wakeup_noise_changed(value):
+        settings_service.settings["wakeup_noise"] = value
+        signals.settings_changed.emit()

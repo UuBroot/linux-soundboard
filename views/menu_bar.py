@@ -3,7 +3,7 @@ from PySide6.QtGui import QAction, QKeySequence
 from views.configure_sound_popup import ConfigureSoundPopup
 from views.new_sound_popup import NewSoundPopup
 from service.sounds_service import sound_service
-
+from views.settings_popup import SettingsPopup
 
 def setup_menu_bar(window):
     """Set up the menu bar using the window instance"""
@@ -43,6 +43,17 @@ def setup_menu_bar(window):
     add_sound_action.triggered.connect(lambda _: sound_service.update_sounds_from_folder())
 
     sounds_menu.addAction(add_sound_action)
+
+    # --- Config Menu ---
+    config_menu = QAction("&Settings", window)
+    config_menu.triggered.connect(lambda _: open_settings_popup(window))
+
+    sounds_menu.addAction(config_menu)
+
+def open_settings_popup(window):
+    print("Open settings popup!")
+    popup = SettingsPopup(window)
+    popup.exec()
 
 def add_sound(window):
     print("Add sound!")
