@@ -1,3 +1,12 @@
 #!/bin/sh
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 export PYTHONPATH="@PYTHONDIR@:$PYTHONPATH"
-exec @PYTHON@ @PYTHONDIR@/main.py "$@"
+
+# For AppImage, use the bundled Python if available
+if [ -n "$APPDIR" ]; then
+    PYTHON="$APPDIR/usr/bin/python3"
+else
+    PYTHON="@PYTHON@"
+fi
+
+exec "$PYTHON" "@PYTHONDIR@/main.py" "$@"

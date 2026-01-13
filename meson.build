@@ -5,17 +5,20 @@ project('linux-soundboard',
 
 python = import('python').find_installation('python3')
 
-# Install python files
-install_subdir('model', install_dir: python.get_install_dir() / 'soundboard')
-install_subdir('service', install_dir: python.get_install_dir() / 'soundboard')
-install_subdir('views', install_dir: python.get_install_dir() / 'soundboard')
+# Use a fixed relative path for AppImage compatibility
+pythondir = get_option('prefix') / 'lib' / 'soundboard'
 
-install_data('main.py', install_dir: python.get_install_dir() / 'soundboard')
+# Install python files
+install_subdir('model', install_dir: pythondir)
+install_subdir('service', install_dir: pythondir)
+install_subdir('views', install_dir: pythondir)
+
+install_data('main.py', install_dir: pythondir)
 
 # Wrapper script
 conf = configuration_data()
 conf.set('PYTHON', python.full_path())
-conf.set('PYTHONDIR', python.get_install_dir() / 'soundboard')
+conf.set('PYTHONDIR', pythondir)
 
 configure_file(
   input: 'com.uubroot.Soundboard.in',
@@ -36,7 +39,7 @@ install_data('com.uubroot.Soundboard.metainfo.xml',
 )
 
 # Icon
-install_data('icon.jpg',
-  rename: 'com.uubroot.Soundboard.jpg',
-  install_dir: get_option('datadir') / 'icons/hicolor/scalable/apps'
+install_data('icon.png',
+  rename: 'com.uubroot.Soundboard.png',
+  install_dir: get_option('datadir') / 'icons/hicolor/256x256/apps'
 )
