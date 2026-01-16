@@ -5,8 +5,10 @@ export PYTHONPATH="@PYTHONDIR@:$PYTHONPATH"
 # For AppImage, use the bundled Python if available
 if [ -n "$APPDIR" ]; then
     PYTHON="$APPDIR/usr/bin/python3"
-else
+elif [ -x "@PYTHON@" ]; then
     PYTHON="@PYTHON@"
+else
+    PYTHON="python3"
 fi
 
 exec "$PYTHON" "@PYTHONDIR@/main.py" "$@"

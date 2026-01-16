@@ -17,7 +17,7 @@ install_data('main.py', install_dir: pythondir)
 
 # Wrapper script
 conf = configuration_data()
-conf.set('PYTHON', python.full_path())
+conf.set('PYTHON', '/usr/bin/python3')
 conf.set('PYTHONDIR', pythondir)
 
 configure_file(
